@@ -9,9 +9,9 @@
 #include "my_typeinfo.h"
 
 // 提交
-//#define UPLOAD
+#define UPLOAD
 // 测试
-#define TEST
+//#define TEST
 
 // ----------------------------------- 数据 -------------------------------------
 #ifdef TEST
@@ -177,65 +177,68 @@ void InitServer() {
 
 
 // TODO: 扩容(当前版本不用，因为InitServer中已经买了足够多的服务器了)
+//void ExpanseServer() {
+//  num_t max_cpu_core = -1;
+//  num_t max_mem_size = -1;
+//  int num_io_intensive = 0;
+//  int num_cal_intensive = 0;
+//  num_t total_need_cpu = 0;
+//  num_t total_need_mem = 0;
+//  for(auto& req : g_request_info) {
+//    if(3 == req.size()) {
+//      std::string req_vm_type = req[1];
+//      num_t need_cpu = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].cpu_core / 2 : g_vm_info[req_vm_type].cpu_core;
+//      num_t need_mem = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].memory_size / 2 : g_vm_info[req_vm_type].memory_size;
+//
+//      total_need_cpu += need_cpu;
+//      total_need_mem += need_mem;
+//
+//      max_cpu_core = std::max(max_cpu_core, need_cpu);
+//      max_mem_size = std::max(max_mem_size, need_mem);
+//      if(g_vm_info[req_vm_type].memory_size > g_vm_info[req_vm_type].cpu_core) {
+//        ++num_io_intensive;
+//      } else {
+//        ++num_cal_intensive;
+//      }
+//    }
+//  }
+//
+//  std::string purchase_server_type;
+//  if(num_io_intensive > num_cal_intensive) {  // IO密集型
+//    for(auto& s : g_io_intensive_sort) {
+//      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
+//        purchase_server_type = s.first;
+//        break;
+//      }
+//    }
+//  } else {
+//    for(auto& s : g_cal_intensive_sort) {
+//      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
+//        purchase_server_type = s.first;
+//        break;
+//      }
+//    }
+//  }
+//
+////  int purchase_num = static_cast<int>((num_cal_intensive + num_io_intensive) * 0.5);
+//  int purchase_num = std::max(total_need_mem / g_server_info[purchase_server_type].server_nodes[0].memory_size,
+//                              total_need_cpu / g_server_info[purchase_server_type].server_nodes[0].cpu_core);
+//  std::string init_buy = "(purchase, ";
+//  init_buy += std::to_string(1) + ")\n";  // 买服务器
+//  g_res.push_back(init_buy);
+//
+//  // 下面开始购买服务器
+//  g_res.push_back("(" + purchase_server_type + ", " + std::to_string(purchase_num) + ")\n");
+//  for (int i = 0; i < purchase_num; ++i) {
+//    g_sys_server_resource[g_server_num++] = g_server_info[purchase_server_type];
+//    g_server_running_vms[i] = 0;
+//    g_server_cost += g_server_info[purchase_server_type].hardware_cost;
+//  }
+//}
 void ExpanseServer() {
-  num_t max_cpu_core = -1;
-  num_t max_mem_size = -1;
-  int num_io_intensive = 0;
-  int num_cal_intensive = 0;
-  num_t total_need_cpu = 0;
-  num_t total_need_mem = 0;
-  for(auto& req : g_request_info) {
-    if(3 == req.size()) {
-      std::string req_vm_type = req[1];
-      num_t need_cpu = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].cpu_core / 2 : g_vm_info[req_vm_type].cpu_core;
-      num_t need_mem = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].memory_size / 2 : g_vm_info[req_vm_type].memory_size;
-
-      total_need_cpu += need_cpu;
-      total_need_mem += need_mem;
-
-      max_cpu_core = std::max(max_cpu_core, need_cpu);
-      max_mem_size = std::max(max_mem_size, need_mem);
-      if(g_vm_info[req_vm_type].memory_size > g_vm_info[req_vm_type].cpu_core) {
-        ++num_io_intensive;
-      } else {
-        ++num_cal_intensive;
-      }
-    }
-  }
-
-  std::string purchase_server_type;
-  if(num_io_intensive > num_cal_intensive) {  // IO密集型
-    for(auto& s : g_io_intensive_sort) {
-      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
-        purchase_server_type = s.first;
-        break;
-      }
-    }
-  } else {
-    for(auto& s : g_cal_intensive_sort) {
-      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
-        purchase_server_type = s.first;
-        break;
-      }
-    }
-  }
-
-//  int purchase_num = static_cast<int>((num_cal_intensive + num_io_intensive) * 0.5);
-  int purchase_num = std::max(total_need_mem / g_server_info[purchase_server_type].server_nodes[0].memory_size,
-                              total_need_cpu / g_server_info[purchase_server_type].server_nodes[0].cpu_core);
-  std::string init_buy = "(purchase, ";
-  init_buy += std::to_string(1) + ")\n";  // 买服务器
-  g_res.push_back(init_buy);
-
-  // 下面开始购买服务器
-  g_res.push_back("(" + purchase_server_type + ", " + std::to_string(purchase_num) + ")\n");
-  for (int i = 0; i < purchase_num; ++i) {
-    g_sys_server_resource[g_server_num++] = g_server_info[purchase_server_type];
-    g_server_running_vms[i] = 0;
-    g_server_cost += g_server_info[purchase_server_type].hardware_cost;
-  }
+  std::string expan = "(purchase, 0)\n";
+  g_res.push_back(expan);
 }
-
 
 // TODO: 迁移(当前版本不用，因为InitServer中已经买了足够多的服务器了)
 void Migrate() {
@@ -304,6 +307,34 @@ bool CreateVm(const std::vector<std::string>& req_info) {
 }
 
 
+bool cmp(const std::pair<std::vector<std::string>, VmNode>& p1, const std::pair<std::vector<std::string>, VmNode>& p2) {
+  if(p1.second.cpu_core != p2.second.cpu_core) {
+    return p1.second.cpu_core > p2.second.cpu_core;
+  } else {
+    return p1.second.memory_size >= p2.second.memory_size;
+  }
+}
+
+bool CreateVmList(const std::vector<std::vector<std::string>>& add_req) {
+  // vector of (add, 虚拟机类型, 虚拟机ID)
+  bool status = true;
+  std::vector<std::pair<std::vector<std::string>, VmNode>> nodes;
+  for(auto& req : add_req) {
+    std::vector<std::string> temp_req = req;
+    VmNode vm = g_vm_info[req[1]];
+    nodes.push_back(std::make_pair(temp_req, vm));
+  }
+  sort(nodes.begin(), nodes.end(), cmp);
+  for(auto& node : nodes) {
+    status = CreateVm(node.first);
+    if(status == false) {
+      break;
+    }
+  }
+  return status;
+}
+
+
 // 删除虚拟机, req_info (del, 虚拟机ID)
 void DeleteVm(const std::vector<std::string>& req_info) {
   std::string req_vm_id = req_info[1];
@@ -337,22 +368,31 @@ void Allocate(int today) {
   // 3. 处理请求
 
   // 1. 扩容
-//  if (today != 0) {  // 第0天的已经在InitServer中买了
-//    ExpanseServer();
-//  }
-  ExpanseServer();
+  if (today != 0) {  // 第0天的已经在InitServer中买了
+    ExpanseServer();
+  }
 
   // 2. 迁移
   Migrate();
 
   // 3. 处理请求
+  std::vector<std::vector<std::string>> add_requests;
   for (auto& req: g_request_info) {
     bool is_add_opt = (req.size() == 3);
     if (is_add_opt) {  // add 虚拟机操作
-      assert (CreateVm(req));
+      add_requests.push_back(req);
+//      assert (CreateVm(req));
     } else {  // del 虚拟机操作
+      if(add_requests.empty() == false) {
+        assert(CreateVmList(add_requests));
+      }
+      add_requests.clear();
       DeleteVm(req);
     }
+  }
+
+  if(add_requests.empty() == false) {
+    assert(CreateVmList(add_requests));
   }
 }
 
@@ -395,7 +435,7 @@ int main() {
   scanf("%d", &num_days);
 
   // 初始化服务器，即第0天的服务器如何购买
-//  InitServer();
+  InitServer();
 
   // 每一天的用户请求序列
   int num_today_requests;   // R: 表示当天共有 R 条请求
@@ -435,7 +475,6 @@ int main() {
     std::cout << s;
   }
 #endif
-
 #ifdef TEST
   // 总成本
   int64_t total_cost = g_server_cost + g_power_cost;

@@ -90,3 +90,4 @@ dkms.conf
 
 # Project exclude paths
 /build/debug/
+!/build/
