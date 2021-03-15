@@ -30,7 +30,8 @@ int g_server_num = 0; // 当前已有的服务器数量
 std::unordered_map<int, ServerNode> g_sys_server_resource;  // 服务器资源
 
 // 当前开机了的服务器, size为当前服务器的总数
-std::vector<int> g_server_running_vms;
+//std::vector<int> g_server_running_vms;
+std::unordered_map<int, int> g_server_running_vms;
 // 记录虚拟机运行在哪个服务器上
 std::unordered_map<std::string, std::vector<int>> g_vm_on_which_server;
 
@@ -43,19 +44,20 @@ int64_t g_power_cost = 0;
 std::vector<std::string> g_res;
 
 // 计算密集型性价比最高的服务器类型
-std::string g_cal_intensive_server_type;
+std::vector<std::pair<std::string, ServerNode>> g_cal_intensive_sort;
 // io密集型性价比最高的服务器类型
-std::string g_io_intensive_server_type;
+std::vector<std::pair<std::string, ServerNode>> g_io_intensive_sort;
 // 平衡型服务器类型
-std::string g_balance_server_type;
+std::vector<std::pair<std::string, ServerNode>> g_balance_sort;
 void GetHighIntensiveServerType() {
-  std::vector<std::pair<std::string, ServerNode>> servers(g_server_info.begin(), g_server_info.end());
-  sort(servers.begin(), servers.end(), cmp_cal);
-  g_cal_intensive_server_type = servers[0].first;
-  sort(servers.begin(), servers.end(), cmp_io);
-  g_io_intensive_server_type = servers[0].first;
-  sort(servers.begin(), servers.end(), cmp_balance);
-  g_balance_server_type = servers[0].first;
+  g_cal_intensive_sort = {g_server_info.begin(), g_server_info.end()};
+  sort(g_cal_intensive_sort.begin(), g_cal_intensive_sort.end(), cmp_cal);
+
+  g_io_intensive_sort = {g_server_info.begin(), g_server_info.end()};
+  sort(g_io_intensive_sort.begin(), g_io_intensive_sort.end(), cmp_io);
+
+  g_balance_sort = {g_server_info.begin(), g_server_info.end()};
+  sort(g_balance_sort.begin(), g_balance_sort.end(), cmp_balance);
 }
 
 // 处理服务器类型数据
@@ -64,7 +66,7 @@ void ProcessServerDataFormat(const std::string& server_type,
                              const std::string& memory_size,
                              const std::string& hardware_cost,
                              const std::string& power_cost) {
-  std::string temp_serv_type("");
+  std::string temp_serv_type;
   for (int i = 1; i < server_type.size() - 1; ++i) {
     temp_serv_type += server_type[i];
   }
@@ -98,7 +100,7 @@ void ProcessVmDataFormat(const std::string& vm_type,
                          const std::string& vm_cpu_core,
                          const std::string& vm_memory_size,
                          const std::string& vm_dual_node) {
-  std::string temp_vm_type("");
+  std::string temp_vm_type;
   for (int i = 1; i < vm_type.size() - 1; ++i) {
     temp_vm_type += vm_type[i];
   }
@@ -149,7 +151,7 @@ void ProcessRequestDataFormat(const std::string& operation,
 // 初始化服务器，即第0天的服务器如何购买(TODO: 优化)
 void InitServer() {
   int n = 2500; // 要购买的总数
-  g_server_running_vms.resize(n, 0);
+//  g_server_running_vms.resize(n, 0);
   std::string init_buy = "(purchase, ";
   init_buy += std::to_string(2) + ")\n";  // 买2种服务器
   g_res.push_back(init_buy);  // (purchase, 2)
@@ -159,6 +161,7 @@ void InitServer() {
   std::string server_type = "hostUY41I";  // cpu核数多, 计算密集型
   g_res.push_back("(" + server_type + ", " + std::to_string(n / 2) + ")\n");
   for (int i = 0; i < n / 2; ++i) {
+    g_server_running_vms[g_server_num] = 0;
     g_sys_server_resource[g_server_num++] = g_server_info[server_type];
     g_server_cost += g_server_info[server_type].hardware_cost;
   }
@@ -166,6 +169,7 @@ void InitServer() {
   server_type = "host78BMY";  // 内存多, IO密集型
   g_res.push_back("(" + server_type + ", " + std::to_string(n / 2) + ")\n");
   for (int i = 0; i < n / 2; ++i) {
+    g_server_running_vms[g_server_num] = 0;
     g_sys_server_resource[g_server_num++] = g_server_info[server_type];
     g_server_cost += g_server_info[server_type].hardware_cost;
   }
@@ -174,8 +178,62 @@ void InitServer() {
 
 // TODO: 扩容(当前版本不用，因为InitServer中已经买了足够多的服务器了)
 void ExpanseServer() {
-  std::string expan = "(purchase, 0)\n";
-  g_res.push_back(expan);
+  num_t max_cpu_core = -1;
+  num_t max_mem_size = -1;
+  int num_io_intensive = 0;
+  int num_cal_intensive = 0;
+  num_t total_need_cpu = 0;
+  num_t total_need_mem = 0;
+  for(auto& req : g_request_info) {
+    if(3 == req.size()) {
+      std::string req_vm_type = req[1];
+      num_t need_cpu = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].cpu_core / 2 : g_vm_info[req_vm_type].cpu_core;
+      num_t need_mem = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].memory_size / 2 : g_vm_info[req_vm_type].memory_size;
+
+      total_need_cpu += need_cpu;
+      total_need_mem += need_mem;
+
+      max_cpu_core = std::max(max_cpu_core, need_cpu);
+      max_mem_size = std::max(max_mem_size, need_mem);
+      if(g_vm_info[req_vm_type].memory_size > g_vm_info[req_vm_type].cpu_core) {
+        ++num_io_intensive;
+      } else {
+        ++num_cal_intensive;
+      }
+    }
+  }
+
+  std::string purchase_server_type;
+  if(num_io_intensive > num_cal_intensive) {  // IO密集型
+    for(auto& s : g_io_intensive_sort) {
+      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
+        purchase_server_type = s.first;
+        break;
+      }
+    }
+  } else {
+    for(auto& s : g_cal_intensive_sort) {
+      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
+        purchase_server_type = s.first;
+        break;
+      }
+    }
+  }
+
+//  int purchase_num = static_cast<int>((num_cal_intensive + num_io_intensive) * 0.5);
+  int purchase_num = std::max(total_need_mem / g_server_info[purchase_server_type].server_nodes[0].memory_size,
+                              total_need_cpu / g_server_info[purchase_server_type].server_nodes[0].cpu_core);
+  std::string init_buy = "(purchase, ";
+  init_buy += std::to_string(1) + ")\n";  // 买服务器
+  g_res.push_back(init_buy);
+
+  // 下面开始购买服务器
+  g_res.push_back("(" + purchase_server_type + ", " + std::to_string(purchase_num) + ")\n");
+  for (int i = 0; i < purchase_num; ++i) {
+    g_sys_server_resource[g_server_num++] = g_server_info[purchase_server_type];
+    g_server_running_vms[i] = 0;
+    g_server_cost += g_server_info[purchase_server_type].hardware_cost;
+  }
 }
 
 
@@ -279,9 +337,10 @@ void Allocate(int today) {
   // 3. 处理请求
 
   // 1. 扩容
-  if (today != 0) {  // 第0天的已经在InitServer中买了
-    ExpanseServer();
-  }
+//  if (today != 0) {  // 第0天的已经在InitServer中买了
+//    ExpanseServer();
+//  }
+  ExpanseServer();
 
   // 2. 迁移
   Migrate();
@@ -336,7 +395,7 @@ int main() {
   scanf("%d", &num_days);
 
   // 初始化服务器，即第0天的服务器如何购买
-  InitServer();
+//  InitServer();
 
   // 每一天的用户请求序列
   int num_today_requests;   // R: 表示当天共有 R 条请求
