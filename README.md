@@ -12,4 +12,9 @@
 Server cost: 613150000
 Power cost: 293986335
 Total cost: 907136335
+
+// V0.30 First Fit
+Server cost: 577914649
+Power cost: 379088455
+Total cost: 957003104
 ```
