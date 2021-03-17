@@ -9,9 +9,9 @@
 #include "my_typeinfo.h"
 
 // 提交
-#define UPLOAD
+//#define UPLOAD
 // 测试
-//#define TEST
+#define TEST
 
 // ----------------------------------- 数据 -------------------------------------
 #ifdef TEST
