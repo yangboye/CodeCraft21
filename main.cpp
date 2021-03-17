@@ -49,6 +49,7 @@ std::vector<std::pair<std::string, ServerNode>> g_cal_intensive_sort;
 std::vector<std::pair<std::string, ServerNode>> g_io_intensive_sort;
 // 平衡型服务器类型
 std::vector<std::pair<std::string, ServerNode>> g_balance_sort;
+
 void GetHighIntensiveServerType() {
   g_cal_intensive_sort = {g_server_info.begin(), g_server_info.end()};
   sort(g_cal_intensive_sort.begin(), g_cal_intensive_sort.end(), cmp_cal);
@@ -177,67 +178,49 @@ void InitServer() {
 
 
 // TODO: 扩容(当前版本不用，因为InitServer中已经买了足够多的服务器了)
-//void ExpanseServer() {
-//  num_t max_cpu_core = -1;
-//  num_t max_mem_size = -1;
-//  int num_io_intensive = 0;
-//  int num_cal_intensive = 0;
-//  num_t total_need_cpu = 0;
-//  num_t total_need_mem = 0;
-//  for(auto& req : g_request_info) {
-//    if(3 == req.size()) {
-//      std::string req_vm_type = req[1];
-//      num_t need_cpu = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].cpu_core / 2 : g_vm_info[req_vm_type].cpu_core;
-//      num_t need_mem = g_vm_info[req_vm_type].dual_node ? g_vm_info[req_vm_type].memory_size / 2 : g_vm_info[req_vm_type].memory_size;
-//
-//      total_need_cpu += need_cpu;
-//      total_need_mem += need_mem;
-//
-//      max_cpu_core = std::max(max_cpu_core, need_cpu);
-//      max_mem_size = std::max(max_mem_size, need_mem);
-//      if(g_vm_info[req_vm_type].memory_size > g_vm_info[req_vm_type].cpu_core) {
-//        ++num_io_intensive;
-//      } else {
-//        ++num_cal_intensive;
-//      }
-//    }
-//  }
-//
-//  std::string purchase_server_type;
-//  if(num_io_intensive > num_cal_intensive) {  // IO密集型
-//    for(auto& s : g_io_intensive_sort) {
-//      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
-//        purchase_server_type = s.first;
-//        break;
-//      }
-//    }
-//  } else {
-//    for(auto& s : g_cal_intensive_sort) {
-//      if(s.second.server_nodes[0].cpu_core > max_cpu_core && s.second.server_nodes[0].memory_size > max_mem_size) {
-//        purchase_server_type = s.first;
-//        break;
-//      }
-//    }
-//  }
-//
-////  int purchase_num = static_cast<int>((num_cal_intensive + num_io_intensive) * 0.5);
-//  int purchase_num = std::max(total_need_mem / g_server_info[purchase_server_type].server_nodes[0].memory_size,
-//                              total_need_cpu / g_server_info[purchase_server_type].server_nodes[0].cpu_core);
-//  std::string init_buy = "(purchase, ";
-//  init_buy += std::to_string(1) + ")\n";  // 买服务器
-//  g_res.push_back(init_buy);
-//
-//  // 下面开始购买服务器
-//  g_res.push_back("(" + purchase_server_type + ", " + std::to_string(purchase_num) + ")\n");
-//  for (int i = 0; i < purchase_num; ++i) {
-//    g_sys_server_resource[g_server_num++] = g_server_info[purchase_server_type];
-//    g_server_running_vms[i] = 0;
-//    g_server_cost += g_server_info[purchase_server_type].hardware_cost;
-//  }
-//}
+void FFD(std::vector<std::pair<std::string, int>>& buy_server,
+         const std::vector<std::pair<int, std::vector<std::string>>>& req_sequence,
+         int kind, /*类型：>1: IO密集型, =1: 平衡型, =0: 计算密集型*/
+         int max_cpu,
+         int max_mem) {
+  std::string cur_buy_sv_type;  // 当前要购买的服务器类型
+}
+
+
 void ExpanseServer() {
   std::string expan = "(purchase, 0)\n";
   g_res.push_back(expan);
+
+  std::vector<std::pair<std::string, int>> buy_server;  // 购买服务器的信息 first: 服务器型号， second：数量
+  std::vector<std::pair<int, std::vector<std::string>>> req_sequence; // 请求序列：first: 请求编号， second：请求命令
+  int req_no = 0; // 请求编号
+  int max_cpu = 0;  // 当前批请求中虚拟机最大需要的cpu核数
+  int max_mem = 0;  // 当前批请求中虚拟机最大需要的内存
+  int io_inten, cal_inten;
+  for (auto& req : g_request_info) {
+    req_sequence.push_back(std::make_pair(req_no, req));
+    if (req.size() == 2) { // del请求
+      // 每碰到一个del请求立马先处理前面的add操作
+      if (!req_sequence.empty()) {
+        FFD(buy_server, req_sequence, io_inten / cal_inten, max_cpu, max_mem);
+        req_sequence.clear();
+      }
+      // TODO: 此处需要处理 del 请求
+
+    } else {  // add请求
+      num_t need_cpu = g_vm_info[req[1]].dual_node ? g_vm_info[req[1]].cpu_core / 2 : g_vm_info[req[1]].cpu_core;
+      num_t need_mem = g_vm_info[req[1]].dual_node ? g_vm_info[req[1]].memory_size / 2 : g_vm_info[req[1]].memory_size;
+      max_cpu = std::max(need_cpu, max_cpu);
+      max_mem = std::max(need_mem, max_mem);
+
+      if (g_vm_info[req[1]].memory_size > g_vm_info[req[1]].cpu_core) {
+        ++io_inten;
+      } else {
+        ++cal_inten;
+      }
+    }
+    ++req_no;
+  }
 }
 
 // TODO: 迁移(当前版本不用，因为InitServer中已经买了足够多的服务器了)
@@ -308,7 +291,7 @@ bool CreateVm(const std::vector<std::string>& req_info) {
 
 
 bool cmp(const std::pair<std::vector<std::string>, VmNode>& p1, const std::pair<std::vector<std::string>, VmNode>& p2) {
-  if(p1.second.cpu_core != p2.second.cpu_core) {
+  if (p1.second.cpu_core != p2.second.cpu_core) {
     return p1.second.cpu_core > p2.second.cpu_core;
   } else {
     return p1.second.memory_size >= p2.second.memory_size;
@@ -319,15 +302,15 @@ bool CreateVmList(const std::vector<std::vector<std::string>>& add_req) {
   // vector of (add, 虚拟机类型, 虚拟机ID)
   bool status = true;
   std::vector<std::pair<std::vector<std::string>, VmNode>> nodes;
-  for(auto& req : add_req) {
+  for (auto& req : add_req) {
     std::vector<std::string> temp_req = req;
     VmNode vm = g_vm_info[req[1]];
     nodes.push_back(std::make_pair(temp_req, vm));
   }
   sort(nodes.begin(), nodes.end(), cmp);
-  for(auto& node : nodes) {
+  for (auto& node : nodes) {
     status = CreateVm(node.first);
-    if(status == false) {
+    if (status == false) {
       break;
     }
   }
@@ -383,7 +366,7 @@ void Allocate(int today) {
       add_requests.push_back(req);
 //      assert (CreateVm(req));
     } else {  // del 虚拟机操作
-      if(add_requests.empty() == false) {
+      if (add_requests.empty() == false) {
         assert(CreateVmList(add_requests));
       }
       add_requests.clear();
@@ -391,7 +374,7 @@ void Allocate(int today) {
     }
   }
 
-  if(add_requests.empty() == false) {
+  if (add_requests.empty() == false) {
     assert(CreateVmList(add_requests));
   }
 }
@@ -479,8 +462,8 @@ int main() {
   // 总成本
   int64_t total_cost = g_server_cost + g_power_cost;
   std::cout << "Server cost: " << g_server_cost << std::endl
-            << "Power cost: "  << g_power_cost << std::endl
-            << "Total cost: "  << total_cost << std::endl;
+            << "Power cost: " << g_power_cost << std::endl
+            << "Total cost: " << total_cost << std::endl;
 #endif
   return 0;
 }
