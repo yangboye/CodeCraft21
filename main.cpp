@@ -52,23 +52,6 @@ std::vector<std::pair<std::string, ServerNode>> g_io_intensive_sort;
 std::vector<std::pair<std::string, ServerNode>> g_balance_sort;
 
 
-typedef struct AddRequestInfo {
-  std::string opt;      // add
-  std::string vm_type;  // 虚拟机型号
-  std::string vm_id;    // 虚拟机ID
-  int count;            // 表示第count个请求
-  explicit AddRequestInfo(const std::string& _opt, const std::string& _vm_type, const std::string& _vm_id, int _count)
-      : opt(_opt), vm_type(_vm_type), vm_id(_vm_id), count(_count) {}
-
-  bool operator < (const AddRequestInfo& rhs) const {
-    if(g_vm_info[vm_type].cpu_core > g_vm_info[rhs.vm_type].cpu_core) return true;
-    if(g_vm_info[vm_type].cpu_core < g_vm_info[rhs.vm_type].cpu_core) {
-      return g_vm_info[vm_type].memory_size > g_vm_info[rhs.vm_type].memory_size;
-    }
-    return count < rhs.count;
-  }
-};
-
 void GetHighIntensiveServerType() {
   g_cal_intensive_sort = {g_server_info.begin(), g_server_info.end()};
   sort(g_cal_intensive_sort.begin(), g_cal_intensive_sort.end(), cmp_cal);
@@ -195,7 +178,7 @@ void DeleteVm(const std::vector<std::string>& req_info) {
 
 // 尝试在服务器上分配虚拟机资源
 bool TryAllocateOnServer(ServerNode& server, const VmNode& vm, int server_id, const std::string& vm_id,
-                         std::vector<std::string>& record, const int index) {
+                         std::vector<std::string>& record) {
   num_t need_cores = vm.cpu_core;
   num_t need_mem_size = vm.memory_size;
   if (vm.dual_node) {  // 如果虚拟机是双节点部署
@@ -209,7 +192,7 @@ bool TryAllocateOnServer(ServerNode& server, const VmNode& vm, int server_id, co
       server.server_nodes[1].cpu_core -= need_cores;
       server.server_nodes[1].memory_size -= need_mem_size;
       g_vm_on_which_server[vm_id] = std::vector<int>{server_id, need_cores, need_mem_size, 'A', 'B'};
-      record[index] = "(" + std::to_string(server_id) + ")\n";
+      record.push_back("(" + std::to_string(server_id) + ")\n");
       return true;
     } else {
       return false;
@@ -219,14 +202,14 @@ bool TryAllocateOnServer(ServerNode& server, const VmNode& vm, int server_id, co
     server.server_nodes[0].cpu_core -= need_cores;
     server.server_nodes[0].memory_size -= need_mem_size;
     g_vm_on_which_server[vm_id] = std::vector<int>{server_id, need_cores, need_mem_size, 'A'};
-    record[index] =  "(" + std::to_string(server_id) + ", A)\n";
+    record.push_back("(" + std::to_string(server_id) + ", A)\n");
     return true;
   } else if (server.server_nodes[1].cpu_core >= need_cores &&
              server.server_nodes[1].memory_size >= need_mem_size) { // 尝试在该服务器的A节点创建
     server.server_nodes[1].cpu_core -= need_cores;
     server.server_nodes[1].memory_size -= need_mem_size;
     g_vm_on_which_server[vm_id] = std::vector<int>{server_id, need_cores, need_mem_size, 'B'};
-    record[index] =  "(" + std::to_string(server_id) + ", B)\n";
+    record.push_back("(" + std::to_string(server_id) + ", B)\n");
     return true;
   }
   // 该服务器中放不下, 返回false
@@ -254,17 +237,8 @@ void ExpandServer(std::string& purchase_type, int& purchase_num, std::vector<std
   int max_cpu = 0;
   int max_mem = 0;
 
-//  std::vector<std::pair<int, std::vector<std::string>>> add_req_sequence;
-  std::map<AddRequestInfo, int> add_req_sequence;
-  int idx = 0;
-  int count = 0;
   for (auto& req:g_request_info) {
     if (req.size() == 3) { // (add, 虚拟机型号, 虚拟机ID)
-      AddRequestInfo add_req(req[0], req[1], req[2], count);
-      add_req_sequence[add_req] = idx;
-      ++idx;
-      ++count;
-
       num_t need_cpu = g_vm_info[req[1]].dual_node ? g_vm_info[req[1]].cpu_core / 2 : g_vm_info[req[1]].cpu_core;
       num_t need_mem = g_vm_info[req[1]].dual_node ? g_vm_info[req[1]].memory_size / 2 : g_vm_info[req[1]].memory_size;
       max_cpu = std::max(need_cpu, max_cpu);
@@ -278,7 +252,6 @@ void ExpandServer(std::string& purchase_type, int& purchase_num, std::vector<std
     }
   }
 
-  record.resize(add_req_sequence.size());
 
   if (io_inten > cal_inten) {
     for (auto& sv_type : g_io_intensive_sort) {
@@ -304,13 +277,13 @@ void ExpandServer(std::string& purchase_type, int& purchase_num, std::vector<std
   }
 
   assert(purchase_type.empty() == false);
+  purchase_type = "hostUY41I";
 
 
   if (g_server_num == 0) {
     BuyOneServer(purchase_type);  // 买一台服务器
   }
 
-  count = 0;
   for (auto& req : g_request_info) {
     if (req.size() == 2) { // (del, 虚拟机ID)
       DeleteVm(req);
@@ -318,10 +291,9 @@ void ExpandServer(std::string& purchase_type, int& purchase_num, std::vector<std
     }
     // 下面是(add, 虚拟机类型, 虚拟机ID)
     bool status = false;
-    int seq = add_req_sequence[AddRequestInfo(req[0], req[1], req[2], count)];
-    ++count;
+
     for (int j = 0; j < g_server_num; ++j) {
-      if (TryAllocateOnServer(g_sys_server_resource[j], g_vm_info[req[1]], j, req[2], record, seq)) {
+      if (TryAllocateOnServer(g_sys_server_resource[j], g_vm_info[req[1]], j, req[2], record)) {
         g_server_running_vms[j]++;
         status = true;  // 分配成功
         break;
@@ -330,7 +302,7 @@ void ExpandServer(std::string& purchase_type, int& purchase_num, std::vector<std
     if (!status) {  // 放不下，再买一台服务器放在这台服务器中
       BuyOneServer(purchase_type);
       if (TryAllocateOnServer(g_sys_server_resource[g_server_num - 1], g_vm_info[req[1]], g_server_num - 1, req[2],
-                              record, seq)) {
+                              record)) {
         g_server_running_vms[g_server_num - 1]++;
         status = true;
       }
