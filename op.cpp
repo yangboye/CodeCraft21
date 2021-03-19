@@ -7,12 +7,12 @@ info::Operate::Operate(const std::string &line, const std::map<std::string, info
   char op_name[32];
   char vm_nmae[32];
   sscanf(line.c_str(),"%s",op_name);
-  if(op_name[0]=='a'){
+  if(op_name[0]=='a'){ // (add, 虚拟机类型, 虚拟机ID)
     this->op_type=OpType::ADD;
     sscanf(line.c_str(),"%s%s%d",op_name,vm_nmae,&this->vm_instance_id);
     this->vm_type_id = vm_name2id_map.find(std::string(vm_nmae))->second;
 
-  }else{
+  }else{  // (del, 虚拟机ID)
     this->op_type=OpType::DEL;
     sscanf(line.c_str(),"%s%d",op_name,&this->vm_instance_id);
   }

@@ -118,7 +118,7 @@ int32_t info::HostInfo::Score(const info::VMInfo &vm_info, info::DeployPos pos) 
     c = a_core-vm_info.core +  b_core-vm_info.core;
     m = a_memory-vm_info.memory +b_memory-vm_info.memory;
   }
-  return 2*c+m;
+  return 2*c+m; // TODO: ?
 }
 
 

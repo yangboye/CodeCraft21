@@ -23,7 +23,7 @@ struct VMInfo {
   int32_t core=0;
   int32_t memory=0;
   std::string name;
-  info::DeployType deploy_type;
+  info::DeployType deploy_type; // single or dual node
 
   VMTypeID type_id=-1;
   VMInstanceID instance_id=-1;
