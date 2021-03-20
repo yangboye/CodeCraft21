@@ -8,6 +8,7 @@
 #include "typedef.h"
 #include <string>
 #include <set>
+#include <list>
 namespace info{
   struct VMInfo;
 
@@ -30,6 +31,11 @@ namespace info{
     int32_t deployed_num=0;
     int32_t service_day=0;
     int32_t service_begin=-1;
+
+
+    std::set<info::VMInstanceID> node_a_deployed_vm_set; // 当前服务器节点B中放的虚拟机
+    std::set<info::VMInstanceID> node_b_deployed_vm_set; // 当前服务器节点A中放的虚拟机
+    std::set<info::VMInstanceID> dual_node_deployed_vm_set; // 当前服务器中放的双节点虚拟机
    public:
     HostInfo()=default;
     explicit HostInfo(const std::string& line);
@@ -41,7 +47,16 @@ namespace info{
 
     int32_t  Score(const info::VMInfo& vm_info,info::DeployPos pos) const;
     int32_t Cost(int total_days) const;
+
+    inline int BalanceScore() const { // >0: A多B少  <0: B多A少
+      int32_t cpu_diff = this->a_core - this->b_core;
+//      int32_t mem_diff = this->a_memory - this->b_memory;
+      return cpu_diff;
+    }
+
+    bool TestMove(const info::VMInfo& vm_info, info::DeployPos from_node, info::DeployPos to_node) const;
   };
+
 
 }
 

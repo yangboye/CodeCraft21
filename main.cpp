@@ -21,6 +21,10 @@ int main() {
 //    auto day_cost =  engine.RunOneDay000(i, host_deployed_ary, vm_deployed_ary);
 //    auto day_cost =  engine.RunOneDay001(i, host_deployed_ary, vm_deployed_ary);
 //    auto day_cost =  engine.RunOneDay002(i, host_deployed_ary, vm_deployed_ary,purchase_order_vec);
+    int32_t max_migration_num = engine.GetMaxMigrationNum();
+    if(max_migration_num > 0) {
+      engine.Migrate(i, max_migration_num, host_deployed_ary, vm_deployed_ary, purchase_order_vec);
+    }
     auto day_cost =  engine.RunOneDay003(i, host_deployed_ary, vm_deployed_ary,purchase_order_vec);
     cost+=day_cost;
   }
