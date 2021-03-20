@@ -3,33 +3,27 @@
 
 #define TEST
 
-void local_debug_init(bool debug){
-  if(debug) {
-    freopen("/disks/disk0/yeyangbo/cpp_code/CodeCraft21/training-data/training-1.txt", "r", stdin);
-  }
-}
-
 
 using namespace std;
 int main() {
 #ifdef TEST
-  local_debug_init(true);
-#else
-  local_debug_init(false);
+  freopen("/disks/disk0/yeyangbo/cpp_code/CodeCraft21/training-data/training-1.txt", "r", stdin);
 #endif
+
   Engine engine;
   engine.InitFromFILE(stdin);
 
   vector<std::vector<info::HostInfo>> host_deployed_ary(engine.host_info_ary.size());
-  vector<info::VMDeployInfo> vm_deployed_ary(engine.vm_iid2read.size());  // 虚拟机部署的信息
-
+  vector<info::VMDeployInfo> vm_deployed_ary(engine.vm_iid2read.size());
+  vector<std::pair<info::HostTypeID, int32_t>> purchase_order_vec;
   int cost = 0;
   for(int i=0;i<engine.daily_ops_ary.size();i++) {
-    auto day_cost =  engine.RunOneDay000(i, host_deployed_ary, vm_deployed_ary);
+//    auto day_cost =  engine.RunOneDay000(i, host_deployed_ary, vm_deployed_ary);
+//    auto day_cost =  engine.RunOneDay001(i, host_deployed_ary, vm_deployed_ary);
+//    auto day_cost =  engine.RunOneDay002(i, host_deployed_ary, vm_deployed_ary,purchase_order_vec);
+    auto day_cost =  engine.RunOneDay003(i, host_deployed_ary, vm_deployed_ary,purchase_order_vec);
     cost+=day_cost;
   }
-
-
 
   vector<string> res;
 
@@ -52,5 +46,6 @@ int main() {
   cout << "Power cost: " << power_cost << endl;
   cout << "Total cost: " << (cost + power_cost) << endl;
 #endif
+
   return 0;
 }

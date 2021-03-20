@@ -98,7 +98,7 @@ bool info::HostInfo::Alloc(const info::VMInfo &vm_info, info::DeployPos &output_
 int32_t info::HostInfo::Cost(int total_days) const {
   int cost =0;
   if(deployed_num==0){
-    cost = service_day*this->daily_cost;
+    cost = service_day * this->daily_cost;
   }else{
     cost = (service_day + (total_days-service_begin))*this->daily_cost;
   }
@@ -118,7 +118,7 @@ int32_t info::HostInfo::Score(const info::VMInfo &vm_info, info::DeployPos pos) 
     c = a_core-vm_info.core +  b_core-vm_info.core;
     m = a_memory-vm_info.memory +b_memory-vm_info.memory;
   }
-  return 2*c+m; // TODO: ?
+  return 2*c+m;
 }
 
 

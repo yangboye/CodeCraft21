@@ -43,4 +43,3 @@ std::string Engine::StrAddItem(info::HostInstanceID target_server_id, info::Depl
   }
   return std::string(buffer);
 }
-

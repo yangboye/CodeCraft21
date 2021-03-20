@@ -10,7 +10,7 @@
 #include <map>
 namespace info {
 struct Operate {
-  info::OpType op_type; // add or del
+  info::OpType op_type;
   info::VMTypeID vm_type_id=-1;
   info::VMInstanceID  vm_instance_id=-1;
  public:
